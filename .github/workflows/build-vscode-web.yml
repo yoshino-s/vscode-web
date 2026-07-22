@@ -69,6 +69,11 @@ jobs:
           node-version: '24.18.0'
           cache: npm
 
+
+      - name: Install native build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libkrb5-dev
       - name: Update recorded VS Code version
         if: steps.version.outputs.skip != 'true'
         run: |
