@@ -1,0 +1,37 @@
+{
+	"name": "vscode-web",
+	"version": "1.129.1",
+	"description": "VS Code web build with github1s customizations",
+	"author": "yoshino-s",
+	"license": "MIT",
+	"type": "module",
+	"repository": "https://github.com/yoshino-s/vscode-web",
+	"scripts": {
+		"clone": "node scripts/clone.js",
+		"patch": "node scripts/patch.js",
+		"build": "run-s clone patch build:*",
+		"build:vscode": "node scripts/build/vscode.js",
+		"build:package": "node scripts/build/package.js",
+		"build:nls": "node scripts/build/nls.js",
+		"watch": "run-s clone patch && run-p watch:*",
+		"watch:source": "node scripts/watch/source.js",
+		"watch:vscode": "node scripts/watch/vscode.js",
+		"watch:extensions": "node scripts/watch/extensions.js",
+		"set-version": "node scripts/set-version.js"
+	},
+	"private": false,
+	"files": [
+		"/dist",
+		".VERSION"
+	],
+	"keywords": [
+		"vscode",
+		"vscode-web",
+		"github1s"
+	],
+	"devDependencies": {
+		"chokidar": "^4.0.3",
+		"fs-extra": "^11.2.0",
+		"npm-run-all": "^4.1.5"
+	}
+}

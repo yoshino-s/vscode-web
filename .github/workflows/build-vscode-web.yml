@@ -1,0 +1,115 @@
+name: Build VS Code Web
+
+on:
+  workflow_dispatch:
+    inputs:
+      vscode_version:
+        description: 'VS Code release tag/version, for example 1.129.1. Leave empty for latest release.'
+        required: false
+        type: string
+      force:
+        description: 'Build even when .VERSION already matches the latest release.'
+        required: false
+        default: false
+        type: boolean
+  schedule:
+    # Poll for VS Code releases every day.
+    - cron: '17 3 * * *'
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'README.md'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-vscode-web-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve VS Code version
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_VERSION: ${{ inputs.vscode_version }}
+          FORCE: ${{ inputs.force }}
+        run: |
+          set -euo pipefail
+          if [ -n "${INPUT_VERSION:-}" ]; then
+            VERSION="${INPUT_VERSION#v}"
+          else
+            VERSION="$(gh release view --repo microsoft/vscode --json tagName --jq '.tagName')"
+            VERSION="${VERSION#v}"
+          fi
+          CURRENT="$(cat .VERSION 2>/dev/null || true)"
+          CURRENT="${CURRENT#v}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "current=${CURRENT}" >> "$GITHUB_OUTPUT"
+          if [ "${VERSION}" = "${CURRENT}" ] && [ "${FORCE:-false}" != "true" ] && [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Skip unchanged scheduled build
+        if: steps.version.outputs.skip == 'true'
+        run: echo "VS Code ${{ steps.version.outputs.version }} is already recorded in .VERSION; skip scheduled build."
+
+      - name: Setup Node.js
+        if: steps.version.outputs.skip != 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24.18.0'
+          cache: npm
+
+      - name: Update recorded VS Code version
+        if: steps.version.outputs.skip != 'true'
+        run: |
+          npm ci
+          npm run set-version -- "${{ steps.version.outputs.version }}"
+
+      - name: Build
+        if: steps.version.outputs.skip != 'true'
+        run: npm run build
+
+      - name: Commit version bump
+        if: steps.version.outputs.skip != 'true'
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if ! git diff --quiet -- .VERSION package.json package-lock.json; then
+            git add .VERSION package.json package-lock.json
+            git commit -m "chore: build VS Code ${{ steps.version.outputs.version }}"
+            git push origin HEAD:main
+          fi
+
+      - name: Publish dist branch
+        if: steps.version.outputs.skip != 'true'
+        run: |
+          set -euo pipefail
+          test -f dist/index.html
+          REV="$(git rev-parse HEAD)"
+          TMP="$(mktemp -d)"
+          cp -R dist/. "$TMP/"
+          cd "$TMP"
+          git init -b dist
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "build: VS Code ${{ steps.version.outputs.version }} from ${REV}"
+          git remote add origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git push --force origin dist:dist
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
