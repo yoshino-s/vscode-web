@@ -5,7 +5,10 @@
 	"author": "yoshino-s",
 	"license": "MIT",
 	"type": "module",
-	"repository": "https://github.com/yoshino-s/vscode-web",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/yoshino-s/vscode-web.git"
+	},
 	"scripts": {
 		"clone": "node scripts/clone.js",
 		"patch": "node scripts/patch.js",
