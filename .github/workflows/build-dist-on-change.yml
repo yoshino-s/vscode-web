@@ -1,0 +1,68 @@
+name: Build latest VS Code Web on change
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-latest-dist-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-dist:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Resolve latest VS Code release
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          VERSION="$(gh release view --repo microsoft/vscode --json tagName --jq '.tagName')"
+          VERSION="${VERSION#v}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Latest VS Code release: ${VERSION}"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24.18.0'
+          cache: npm
+
+      - name: Install wrapper dependencies
+        run: npm ci
+
+      - name: Set package version to latest VS Code
+        run: npm run set-version -- "${{ steps.version.outputs.version }}"
+
+      - name: Build latest VS Code Web dist
+        run: npm run build
+
+      - name: Publish dist branch
+        run: |
+          set -euo pipefail
+          test -f dist/index.html
+          REV="${GITHUB_SHA}"
+          TMP="$(mktemp -d)"
+          cp -R dist/. "$TMP/"
+          cd "$TMP"
+          git init -b dist
+          git config user.name "yoshino-s"
+          git config user.email "cy-cui@outlook.com"
+          git add -A
+          git commit -m "build: VS Code ${{ steps.version.outputs.version }} from ${REV}"
+          git remote add origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git push --force origin dist:dist
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
