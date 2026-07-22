@@ -29,6 +29,7 @@ const main = () => {
 		type: projectInfo.type,
 		author: projectInfo.author,
 		keywords: projectInfo.keywords,
+		publishConfig: projectInfo.publishConfig,
 	};
 	fs.writeFileSync(path.join(PROJECT_ROOT, 'dist/package.json'), JSON.stringify(packageJson, null, 2));
 };
