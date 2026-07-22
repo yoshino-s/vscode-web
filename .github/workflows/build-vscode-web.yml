@@ -83,8 +83,8 @@ jobs:
         if: steps.version.outputs.skip != 'true'
         run: |
           set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name "yoshino-s"
+          git config user.email "cy-cui@outlook.com"
           if ! git diff --quiet -- .VERSION package.json package-lock.json; then
             git add .VERSION package.json package-lock.json
             git commit -m "chore: build VS Code ${{ steps.version.outputs.version }} [skip ci]"
@@ -101,8 +101,8 @@ jobs:
           cp -R dist/. "$TMP/"
           cd "$TMP"
           git init -b dist
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name "yoshino-s"
+          git config user.email "cy-cui@outlook.com"
           git add -A
           git commit -m "build: VS Code ${{ steps.version.outputs.version }} from ${REV}"
           git remote add origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
