@@ -47,3 +47,18 @@ npm run set-version -- 1.129.1
 `.github/workflows/build-vscode-web.yml` can be run manually, and also polls the latest
 `microsoft/vscode` release daily. When a new VS Code release is detected, it builds and force-pushes
 the packaged assets to the `dist` branch.
+
+
+## npm publishing
+
+The package is published as `@yoshino-s/vscode-web`.
+
+`publish-npm.yml` is designed for npm Trusted Publishing / OIDC, so no npm token is
+stored in GitHub. Configure the package trusted publisher in npm with:
+
+- Repository: `yoshino-s/vscode-web`
+- Workflow file: `publish-npm.yml`
+- Environment: leave empty unless you add one to the workflow
+
+Then run the workflow manually, or publish a GitHub release, to build and publish
+`dist/` with provenance.

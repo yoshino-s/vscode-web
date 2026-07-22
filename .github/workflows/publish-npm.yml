@@ -1,0 +1,85 @@
+name: Publish npm package
+
+on:
+  workflow_dispatch:
+    inputs:
+      vscode_version:
+        description: 'VS Code release tag/version to publish. Leave empty for the latest release.'
+        required: false
+        type: string
+      npm_tag:
+        description: 'npm dist-tag to publish.'
+        required: false
+        default: latest
+        type: string
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: publish-npm-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Resolve VS Code version
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_VERSION: ${{ inputs.vscode_version }}
+        run: |
+          set -euo pipefail
+          if [ -n "${INPUT_VERSION:-}" ]; then
+            VERSION="${INPUT_VERSION#v}"
+          elif [ "${{ github.event_name }}" = "release" ]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="$(gh release view --repo microsoft/vscode --json tagName --jq '.tagName')"
+            VERSION="${VERSION#v}"
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "VS Code version to publish: ${VERSION}"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24.18.0'
+          registry-url: 'https://registry.npmjs.org'
+          cache: npm
+
+      - name: Install wrapper dependencies
+        run: npm ci
+
+      - name: Set package version
+        run: npm run set-version -- "${{ steps.version.outputs.version }}"
+
+      - name: Skip if npm version already exists
+        id: exists
+        run: |
+          set -euo pipefail
+          if npm view "@yoshino-s/vscode-web@${{ steps.version.outputs.version }}" version >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "@yoshino-s/vscode-web@${{ steps.version.outputs.version }} already exists on npm; skipping publish."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build package dist
+        if: steps.exists.outputs.exists != 'true'
+        run: npm run build
+
+      - name: Publish to npm with trusted publishing
+        if: steps.exists.outputs.exists != 'true'
+        run: npm publish ./dist --access public --provenance --tag "${{ inputs.npm_tag || 'latest' }}"
