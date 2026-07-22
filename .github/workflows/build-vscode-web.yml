@@ -91,7 +91,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           if ! git diff --quiet -- .VERSION package.json package-lock.json; then
             git add .VERSION package.json package-lock.json
-            git commit -m "chore: build VS Code ${{ steps.version.outputs.version }}"
+            git commit -m "chore: build VS Code ${{ steps.version.outputs.version }} [skip ci]"
             git push origin HEAD:main
           fi
 
